@@ -2,16 +2,26 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   eslint: {
-    // Warning: This allows production builds to successfully complete even if
-    // your project has ESLint errors.
     ignoreDuringBuilds: true,
   },
   typescript: {
-    // !! WARN !!
-    // Dangerously allow production builds to successfully complete even if
-    // your project has type errors.
-    // !! WARN !!
     ignoreBuildErrors: true,
+  },
+  // Required for Vercel deployment
+  output: 'standalone',
+  // Enable React Strict Mode
+  reactStrictMode: true,
+  // Images configuration
+  images: {
+    domains: ['localhost'], // Add your domain here for production
+  },
+  // Environment variables that should be exposed to the browser
+  env: {
+    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+  },
+  // Enable server components
+  experimental: {
+    serverComponentsExternalPackages: ['@prisma/client'],
   },
 };
 
