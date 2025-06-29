@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Build output
+.next/
+out/
+
+# Environment files
+.env*
+!.env.example
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Local development
+.DS_Store
+*.pem
+
+# Test files
+**/*.test.*
+**/*.spec.*
+
+# TypeScript
+*.tsbuildinfo
+
+# IDE
+.vscode/
+.idea/
+
+# Misc
+*.log
+coverage/
+
+# Prisma
+prisma/migrations/
+prisma/dev.db

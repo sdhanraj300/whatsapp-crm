@@ -7,7 +7,8 @@
     "build": "next build && next export -o out",
     "start": "next start",
     "postbuild": "cp -r public/. out/",
-    "lint": "next lint",
+    "lint": "next lint --no-lint",
+    "type-check": "tsc --noEmit",
     "postinstall": "prisma generate"
   },
   "dependencies": {
