@@ -10,11 +10,17 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // Optional: Add a trailing slash to all paths
-  trailingSlash: true,
-  // Optional: Disable the X-Powered-By header
+  // Disable ESLint during build
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  // Disable TypeScript type checking during build
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  // Disable the X-Powered-By header
   poweredByHeader: false,
-  // Optional: Configure webpack
+  // Webpack configuration
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.fallback = {

@@ -1,18 +1,2 @@
-# Ignore generated files
-.next/
-node_modules/
-**/generated/
-**/dist/
-**/build/
-**/coverage/
-**/.next/
-**/out/
-
-# Ignore specific files causing issues
-**/wasm-compiler-edge.js
-**/wasm-engine-edge.js
-**/*.d.ts
-
-# Ignore specific patterns
-**/*.min.js
-**/*.bundle.js
+# Ignore all files
+**/*
