@@ -6,8 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "postbuild": "cp -r public/. out/",
-    "lint": "next lint --no-lint",
+    "lint": "next lint",
     "type-check": "tsc --noEmit",
     "postinstall": "prisma generate"
   },
