@@ -1,13 +1,15 @@
-/// <reference types="react" />
+import 'react';
 
-declare namespace JSX {
-  interface IntrinsicElements {
-    [elemName: string]: any;
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      [elemName: string]: React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement>;
+    }
   }
 }
 
 declare module '*.tsx' {
-  import React from 'react';
-  const content: React.ComponentType<any>;
+  import { ComponentType } from 'react';
+  const content: ComponentType<unknown>;
   export default content;
 }

@@ -59,13 +59,24 @@ export default async function LeadsPage({
   const sortOrder = (await searchParams).sortOrder as 'asc' | 'desc' || 'desc';
 
   // Build the where clause based on filters
-  const whereClause: any = {
+  const whereClause: {
+    userId: string;
+    OR?: Array<{
+      name?: { contains: string; mode: 'insensitive' };
+      email?: { contains: string; mode: 'insensitive' };
+      phone?: { contains: string };
+      service?: { contains: string; mode: 'insensitive' };
+      notes?: { contains: string; mode: 'insensitive' };
+    }>;
+    status?: string;
+  } = {
     userId: session.user.id,
   };
 
   if (searchQuery) {
     whereClause.OR = [
       { name: { contains: searchQuery, mode: 'insensitive' } },
+      { email: { contains: searchQuery, mode: 'insensitive' } },
       { phone: { contains: searchQuery } },
       { service: { contains: searchQuery, mode: 'insensitive' } },
       { notes: { contains: searchQuery, mode: 'insensitive' } },
@@ -79,9 +90,9 @@ export default async function LeadsPage({
   // Fetch leads with pagination
   const leads = await prisma.lead.findMany({
     where: whereClause,
-    orderBy: {
-      [sortBy]: sortOrder,
-    },
+    orderBy: sortBy === 'name' 
+      ? { name: sortOrder }
+      : { createdAt: sortOrder },
   });
 
   // Get count of leads by status for the filter badges
@@ -95,7 +106,7 @@ export default async function LeadsPage({
 
   const statusOptions = [
     { value: 'ALL', label: 'All Leads', count: leads.length },
-    ...statusCounts.map(({ status, _count }: { status: string; _count: { status: number } }) => ({
+    ...statusCounts.map(({ status, _count }) => ({
       value: status,
       label: `${status.charAt(0)}${status.slice(1).toLowerCase()}`,
       count: _count.status,
@@ -104,8 +115,8 @@ export default async function LeadsPage({
 
   // Calculate stats
   const totalLeads = leads.length;
-  const newLeads = leads.filter((lead: Lead) => lead.status === 'NEW').length;
-  const qualifiedLeads = leads.filter((lead: Lead) => lead.status === 'QUALIFIED').length;
+  const newLeads = leads.filter(lead => lead.status === 'NEW').length;
+  const qualifiedLeads = leads.filter(lead => lead.status === 'QUALIFIED').length;
   const conversionRate = totalLeads > 0 ? Math.round((qualifiedLeads / totalLeads) * 100) : 0;
 
   return (

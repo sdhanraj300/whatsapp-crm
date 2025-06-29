@@ -34,8 +34,16 @@ export default async function LeadDetailPage({ params }: PageProps) {
   const formattedUpdatedAt = format(new Date(lead.updatedAt), 'MMM d, yyyy h:mm a');
   const formattedFollowUp = lead.followUpOn ? format(new Date(lead.followUpOn), 'MMM d, yyyy') : 'Not set';
 
+  type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline';
+
+  interface StatusMapItem {
+    label: string;
+    variant: BadgeVariant;
+    color: string;
+  }
+
   const getStatusBadge = (status: string) => {
-    const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; color: string }> = {
+    const statusMap: Record<string, StatusMapItem> = {
       NEW: { label: 'New', variant: 'default', color: 'bg-blue-100 text-blue-800 border-blue-200' },
       CONTACTED: { label: 'Contacted', variant: 'default', color: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
       FOLLOW_UP: { label: 'Follow Up', variant: 'outline', color: 'bg-purple-100 text-purple-800 border-purple-200' },

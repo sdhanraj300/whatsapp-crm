@@ -3,7 +3,6 @@ import { authOptions } from '@/lib/auth-options';
 import { redirect } from 'next/navigation';
 import prisma from '@/lib/prisma';
 import { Dashboard } from '@/components/dashboard/dashboard';
-import { Suspense } from 'react';
 
 // ==================== TYPES ====================
 
@@ -25,7 +24,7 @@ interface DashboardStats {
 }
 
 // This type represents the possible MongoDB aggregation result formats
-type MongoAggregationResult<T = any> = 
+type MongoAggregationResult<T = unknown> = 
   | { cursor: { firstBatch: T[] }; ok: number }
   | { result: T[]; ok: number }
   | { cursor: { firstBatch: T[] } }

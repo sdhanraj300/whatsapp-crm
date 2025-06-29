@@ -34,7 +34,7 @@ export function useAuth() {
     };
   }, []);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (email: string, _password: string) => {
     try {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 500));
