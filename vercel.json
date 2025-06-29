@@ -3,29 +3,21 @@
   "builds": [
     {
       "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "out"
-      }
+      "use": "@vercel/next"
     }
   ],
   "routes": [
     {
-      "src": "^/static/(.*)",
-      "dest": "/static/$1"
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
     },
     {
-      "src": "^/favicon.ico",
-      "dest": "/favicon.ico"
-    },
-    {
-      "src": "^/(.*)",
-      "dest": "/index.html"
+      "src": "/(.*)",
+      "dest": "/$1"
     }
   ],
   "env": {
     "NODE_ENV": "production"
   },
-  "buildCommand": "npm run build",
-  "outputDirectory": "out"
+  "buildCommand": "npm run build"
 }
