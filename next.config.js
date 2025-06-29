@@ -4,8 +4,10 @@
  * @type {import('next').NextConfig}
  */
 const nextConfig = {
-  // Disable static optimization for API routes
+  // Enable static export
   output: 'export',
+  
+  // Configure static export settings
   distDir: 'out',
   trailingSlash: true,
   
@@ -25,21 +27,9 @@ const nextConfig = {
   // Disable the X-Powered-By header
   poweredByHeader: false,
   
-  // Skip API routes during export
-  exportPathMap: async function() {
-    return {
-      '/': { page: '/' },
-      '/login': { page: '/login' },
-      '/register': { page: '/register' },
-      '/dashboard': { page: '/dashboard' },
-      '/unauthorized': { page: '/unauthorized' },
-      // Add other static pages here
-    };
-  },
-  
   // Webpack configuration
   webpack: (config, { isServer }) => {
-    // Skip API routes in client bundle
+    // Skip Node.js modules in client bundle
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
@@ -53,16 +43,16 @@ const nextConfig = {
     return config;
   },
   
-  // Disable server components runtime for static export
+  // Experimental features
   experimental: {
-    serverComponentsExternalPackages: ['@prisma/client']
+    // No experimental features needed for now
   },
   
-  // Disable API routes for static export
-  api: {
-    bodyParser: false,
-    externalResolver: true,
-  },
+  // Skip API routes during export
+  skipTrailingSlashRedirect: true,
+  
+  // Configure external packages for server components
+  serverExternalPackages: ['@prisma/client'],
 };
 
 module.exports = nextConfig;
