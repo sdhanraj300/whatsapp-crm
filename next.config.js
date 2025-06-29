@@ -32,7 +32,7 @@ const nextConfig = {
   
   // Webpack configuration
   webpack: (config, { isServer }) => {
-    // Skip Node.js modules in client bundle
+    // Fixes npm packages that depend on `node:` protocol (not available in browser)
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
@@ -41,33 +41,23 @@ const nextConfig = {
         tls: false,
         dns: false,
         child_process: false,
+        dgram: false,
+        zlib: false,
+        http2: false,
+        process: false,
+        path: false,
+        crypto: false,
+        stream: false,
+        util: false,
+        url: false,
+        http: false,
+        https: false,
+        os: false,
       };
     }
-    
-    // Exclude API routes from client bundle
-    if (!isServer) {
-      config.resolve.alias = {
-        ...config.resolve.alias,
-        'next-auth/next': false,
-        'next-auth/react': false,
-        'next-auth': false,
-      };
-    }
-    
     return config;
   },
   
-  // Exclude API routes from static export
-  exportPathMap: async function() {
-    const paths = {
-      '/': { page: '/' },
-      '/login': { page: '/login' },
-      '/register': { page: '/register' },
-      '/dashboard': { page: '/dashboard' },
-      '/unauthorized': { page: '/unauthorized' },
-    };
-    return paths;
-  },
 };
 
 module.exports = nextConfig;
