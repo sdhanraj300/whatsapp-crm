@@ -27,6 +27,9 @@ const nextConfig = {
   // Disable the X-Powered-By header
   poweredByHeader: false,
   
+  // Skip API routes during export
+  skipTrailingSlashRedirect: true,
+  
   // Webpack configuration
   webpack: (config, { isServer }) => {
     // Skip Node.js modules in client bundle
@@ -40,19 +43,31 @@ const nextConfig = {
         child_process: false,
       };
     }
+    
+    // Exclude API routes from client bundle
+    if (!isServer) {
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        'next-auth/next': false,
+        'next-auth/react': false,
+        'next-auth': false,
+      };
+    }
+    
     return config;
   },
   
-  // Experimental features
-  experimental: {
-    // No experimental features needed for now
+  // Exclude API routes from static export
+  exportPathMap: async function() {
+    const paths = {
+      '/': { page: '/' },
+      '/login': { page: '/login' },
+      '/register': { page: '/register' },
+      '/dashboard': { page: '/dashboard' },
+      '/unauthorized': { page: '/unauthorized' },
+    };
+    return paths;
   },
-  
-  // Skip API routes during export
-  skipTrailingSlashRedirect: true,
-  
-  // Configure external packages for server components
-  serverExternalPackages: ['@prisma/client'],
 };
 
 module.exports = nextConfig;

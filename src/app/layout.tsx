@@ -1,10 +1,10 @@
+'use client';
+
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/components/ui/toast";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth-options";
-import { SessionProvider } from "next-auth/react";
+import { AuthProvider } from "@/lib/auth";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,28 +16,29 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
+// This is a workaround for static export
+const metadata: Metadata = {
   title: "CRM Dashboard",
   description: "A modern CRM dashboard with Next.js and Prisma",
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const session = await getServerSession(authOptions);
-
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        <SessionProvider session={session}>
+      <head>
+        <title>CRM Dashboard</title>
+        <meta name="description" content="A modern CRM dashboard with Next.js and Prisma" />
+      </head>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <AuthProvider>
           <ToastProvider>
             {children}
           </ToastProvider>
-        </SessionProvider>
+        </AuthProvider>
       </body>
     </html>
   );
