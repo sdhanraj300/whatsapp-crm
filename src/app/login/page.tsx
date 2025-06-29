@@ -18,20 +18,24 @@ export default function LoginPage() {
     setError('');
 
     try {
+      const callbackUrl = new URLSearchParams(window.location.search).get('callbackUrl') || '/dashboard';
       const result = await signIn('credentials', {
         redirect: false,
         email,
         password,
+        callbackUrl: callbackUrl as string
       });
 
       if (result?.error) {
         setError('Invalid email or password');
       } else {
-        router.push('/dashboard');
-        router.refresh();
+        // Use the callback URL from the result or fallback to '/dashboard'
+        const targetUrl = result?.url || '/dashboard';
+        window.location.href = targetUrl; // Full page reload to ensure auth state is updated
       }
     } catch (error) {
       setError('An error occurred. Please try again.');
+      console.error('Login error:', error);
     } finally {
       setIsLoading(false);
     }
