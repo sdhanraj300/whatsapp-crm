@@ -3,6 +3,7 @@ import { authOptions } from '@/lib/auth-options';
 import { redirect } from 'next/navigation';
 import prisma from '@/lib/prisma';
 import { Dashboard } from '@/components/dashboard/dashboard';
+import { Suspense } from 'react';
 
 // ==================== TYPES ====================
 
@@ -209,11 +210,11 @@ const DashboardError = () => (
 // ==================== MAIN COMPONENT ====================
 
 export default async function DashboardPage() {
-  // Authentication check
   const session = await getServerSession(authOptions);
 
+  // This should be handled by middleware, but just in case
   if (!session?.user) {
-    redirect('/login');
+    redirect(`/login?callbackUrl=${encodeURIComponent('/dashboard')}`);
   }
 
   try {

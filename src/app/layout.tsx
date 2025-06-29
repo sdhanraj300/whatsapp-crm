@@ -4,7 +4,6 @@ import "./globals.css";
 import { ToastProvider } from "@/components/ui/toast";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth-options";
-import { redirect } from "next/navigation";
 import { SessionProvider } from "next-auth/react";
 
 const geistSans = Geist({
@@ -28,15 +27,6 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const session = await getServerSession(authOptions);
-  
-  // Redirect to login if not authenticated and not on a public page
-  const isPublicPath = ['/login', '/register', '/_next', '/favicon.ico'].includes(
-    `/${(children as any)?.props?.childProp?.segment || ''}`
-  );
-  
-  if (!session && !isPublicPath) {
-    redirect('/login');
-  }
 
   return (
     <html lang="en">

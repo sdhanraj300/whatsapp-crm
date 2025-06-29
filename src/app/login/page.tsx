@@ -18,24 +18,36 @@ export default function LoginPage() {
     setError('');
 
     try {
-      const callbackUrl = new URLSearchParams(window.location.search).get('callbackUrl') || '/dashboard';
+      // Get the callback URL from the query parameters
+      const searchParams = new URLSearchParams(window.location.search);
+      const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
+      
+      // Clear any existing session data
+      await fetch('/api/auth/signout', { method: 'POST' });
+      
+      // Sign in with credentials
       const result = await signIn('credentials', {
         redirect: false,
         email,
         password,
-        callbackUrl: callbackUrl as string
+        callbackUrl
       });
 
       if (result?.error) {
-        setError('Invalid email or password');
-      } else {
-        // Use the callback URL from the result or fallback to '/dashboard'
-        const targetUrl = result?.url || '/dashboard';
-        window.location.href = targetUrl; // Full page reload to ensure auth state is updated
+        throw new Error(result.error);
       }
+
+      // If we get here, sign in was successful
+      // Use window.location to ensure a full page reload and proper auth state
+      window.location.href = callbackUrl;
+      
     } catch (error) {
-      setError('An error occurred. Please try again.');
       console.error('Login error:', error);
+      setError(
+        error instanceof Error 
+          ? error.message 
+          : 'An error occurred. Please try again.'
+      );
     } finally {
       setIsLoading(false);
     }
