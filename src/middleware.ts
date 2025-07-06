@@ -1,10 +1,29 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { getToken } from 'next-auth/jwt';
 
-// This function can be marked `async` if using `await` inside
-export function middleware() {
-  // For static export, we'll handle auth client-side
-  // This middleware will only run on the server in production
+const publicPaths = ['/login', '/register'];
+
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  
+  // Check if the current path is public
+  const isPublicPath = publicPaths.some(path => 
+    pathname === path || pathname.startsWith(`${path}/`)
+  );
+
+  // Get the token from the request
+  const token = await getToken({ 
+    req: request,
+    secret: process.env.NEXTAUTH_SECRET,
+  });
+
+  // If user is logged in and tries to access login/register, redirect to dashboard
+  if (token && isPublicPath) {
+    const url = new URL('/dashboard', request.url);
+    return NextResponse.redirect(url);
+  }
+
   return NextResponse.next();
 }
 

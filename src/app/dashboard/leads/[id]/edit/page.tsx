@@ -109,11 +109,13 @@ export default async function EditLeadPage({
                     initialData={{
                       id: lead.id,
                       name: lead.name,
+                      email: lead.email || '',
                       phone: lead.phone,
                       service: lead.service || '',
                       status: lead.status as 'NEW' | 'CONTACTED' | 'CLOSED' | 'LOST',
+                      source: lead.source || '',
                       followUpOn: lead.followUpOn ? new Date(lead.followUpOn) : undefined,
-                      notes: lead.notes || undefined,
+                      notes: lead.notes || '',
                     }}
                     isEdit
                   />

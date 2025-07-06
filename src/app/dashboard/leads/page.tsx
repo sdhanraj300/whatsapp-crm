@@ -1,395 +1,306 @@
-import prisma from '@/lib/prisma';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth-options';
-import { redirect } from 'next/navigation';
+'use client';
+
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { format } from 'date-fns';
-import { 
-  Search, 
-  Filter, 
-  ChevronDown, 
-  MessageCircle, 
-  Phone, 
-  Plus, 
-  Users, 
-  TrendingUp, 
-  Calendar,
-  Mail,
-  MapPin,
-  Star,
-  Eye,
-  Edit,
-  MoreVertical,
-  Download,
-  RefreshCw
-} from 'lucide-react';
+import { Plus, Users, Star, TrendingUp, Download, RefreshCw } from 'lucide-react';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
 
 interface Lead {
   id: string;
   name: string;
   phone: string;
   email: string | null;
-  service: string | null;
   status: string;
-  source: string | null;
-  notes: string | null;
-  userId: string;
-  createdAt: Date;
-  updatedAt: Date;
-  followUpOn: Date | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
-interface PageProps {
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+interface Stats {
+  totalLeads: number;
+  newLeads: number;
+  qualifiedLeads: number;
+  conversionRate: number;
 }
 
-export default async function LeadsPage({
-  searchParams,
-}: PageProps) {
-  const session = await getServerSession(authOptions);
-  
-  if (!session?.user?.email) {
-    redirect('/login');
-  }
+export default function LeadsPage() {
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [leadToDelete, setLeadToDelete] = useState<string | null>(null);
+  const [stats, setStats] = useState<Stats>({
+    totalLeads: 0,
+    newLeads: 0,
+    qualifiedLeads: 0,
+    conversionRate: 0,
+  });
 
-  // Parse query parameters
-  const searchQuery = (await searchParams).search as string || '';
-  const statusFilter = (await searchParams).status as string || 'ALL';
-  const sortBy = (await searchParams).sortBy as string || 'createdAt';
-  const sortOrder = (await searchParams).sortOrder as 'asc' | 'desc' || 'desc';
-
-  // Build the where clause based on filters
-  const whereClause: {
-    userId: string;
-    OR?: Array<{
-      name?: { contains: string; mode: 'insensitive' };
-      email?: { contains: string; mode: 'insensitive' };
-      phone?: { contains: string };
-      service?: { contains: string; mode: 'insensitive' };
-      notes?: { contains: string; mode: 'insensitive' };
-    }>;
-    status?: string;
-  } = {
-    userId: session.user.id,
+  const handleDeleteClick = (id: string) => {
+    setLeadToDelete(id);
+    setShowDeleteModal(true);
   };
 
-  if (searchQuery) {
-    whereClause.OR = [
-      { name: { contains: searchQuery, mode: 'insensitive' } },
-      { email: { contains: searchQuery, mode: 'insensitive' } },
-      { phone: { contains: searchQuery } },
-      { service: { contains: searchQuery, mode: 'insensitive' } },
-      { notes: { contains: searchQuery, mode: 'insensitive' } },
-    ];
-  }
+  const handleDelete = async () => {
+    if (!leadToDelete) return;
+    
+    try {
+      try {
+        const response = await fetch(`/api/leads?id=${leadToDelete}`, {
+          method: 'DELETE',
+        });
 
-  if (statusFilter !== 'ALL') {
-    whereClause.status = statusFilter;
-  }
+        if (response.ok) {
+          setLeads(prevLeads => prevLeads.filter(lead => lead.id !== leadToDelete));
+          
+          // Update stats
+          const newLeads = leads.filter(lead => lead.id !== leadToDelete);
+          const newTotalLeads = newLeads.length;
+          const newNewLeads = newLeads.filter(lead => lead.status === 'NEW').length;
+          const newQualifiedLeads = newLeads.filter(lead => lead.status === 'QUALIFIED').length;
+          const newConversionRate = newTotalLeads > 0 
+            ? Math.round((newQualifiedLeads / newTotalLeads) * 100) 
+            : 0;
+          
+          setStats({
+            totalLeads: newTotalLeads,
+            newLeads: newNewLeads,
+            qualifiedLeads: newQualifiedLeads,
+            conversionRate: newConversionRate,
+          });
+          toast.success('Lead deleted successfully');
+        } else {
+          const errorData = await response.json();
+          toast.error(errorData.error || 'Failed to delete lead');
+        }
+      } catch (error) {
+        console.error('Error deleting lead:', error);
+        toast.error('An unexpected error occurred');
+      }
+    } finally {
+      setShowDeleteModal(false);
+    }
+  };
 
-  // Fetch leads with pagination
-  const leads = await prisma.lead.findMany({
-    where: whereClause,
-    orderBy: sortBy === 'name' 
-      ? { name: sortOrder }
-      : { createdAt: sortOrder },
-  });
+  useEffect(() => {
+    const fetchLeads = async () => {
+      try {
+        setIsLoading(true);
+        const response = await fetch('/api/leads', {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          cache: 'no-store', // Prevent caching
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || 'Failed to fetch leads');
+        }
+        
+        const data = await response.json();
+        setLeads(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error('Error fetching leads:', error);
+        toast.error(error instanceof Error ? error.message : 'Failed to load leads');
+        setLeads([]); // Reset to empty array on error
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  // Get count of leads by status for the filter badges
-  const statusCounts = await prisma.lead.groupBy({
-    by: ['status'],
-    where: { userId: session.user.id },
-    _count: {
-      status: true,
-    },
-  });
+    fetchLeads();
+  }, []);
 
-  const statusOptions = [
-    { value: 'ALL', label: 'All Leads', count: leads.length },
-    ...statusCounts.map(({ status, _count }) => ({
-      value: status,
-      label: `${status.charAt(0)}${status.slice(1).toLowerCase()}`,
-      count: _count.status,
-    })),
-  ];
-
-  // Calculate stats
-  const totalLeads = leads.length;
-  const newLeads = leads.filter(lead => lead.status === 'NEW').length;
-  const qualifiedLeads = leads.filter(lead => lead.status === 'QUALIFIED').length;
-  const conversionRate = totalLeads > 0 ? Math.round((qualifiedLeads / totalLeads) * 100) : 0;
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        {/* Header Section */}
-        <div className="mb-8">
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-8">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                  <Users className="w-7 h-7 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-                    Lead Management
-                  </h1>
-                  <p className="text-gray-600 mt-1 text-lg">
-                    Track and manage your sales pipeline
-                  </p>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-3">
-                <button className="inline-flex items-center px-4 py-2.5 bg-white border-2 border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 shadow-sm">
-                  <Download className="w-4 h-4 mr-2" />
-                  Export
-                </button>
-                <button className="inline-flex items-center px-4 py-2.5 bg-white border-2 border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 shadow-sm">
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Refresh
-                </button>
-                <Link
-                  href="/dashboard/leads/new"
-                  className="inline-flex items-center px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-xl shadow-lg hover:shadow-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add New Lead
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 text-white shadow-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-blue-100 text-sm font-medium">Total Leads</p>
-                <p className="text-3xl font-bold">{totalLeads}</p>
-              </div>
-              <div className="w-12 h-12 bg-blue-400/30 rounded-lg flex items-center justify-center">
-                <Users className="w-6 h-6" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-6 text-white shadow-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-green-100 text-sm font-medium">New Leads</p>
-                <p className="text-3xl font-bold">{newLeads}</p>
-              </div>
-              <div className="w-12 h-12 bg-green-400/30 rounded-lg flex items-center justify-center">
-                <Star className="w-6 h-6" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 text-white shadow-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-purple-100 text-sm font-medium">Qualified</p>
-                <p className="text-3xl font-bold">{qualifiedLeads}</p>
-              </div>
-              <div className="w-12 h-12 bg-purple-400/30 rounded-lg flex items-center justify-center">
-                <TrendingUp className="w-6 h-6" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-6 text-white shadow-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-orange-100 text-sm font-medium">Conversion</p>
-                <p className="text-3xl font-bold">{conversionRate}%</p>
-              </div>
-              <div className="w-12 h-12 bg-orange-400/30 rounded-lg flex items-center justify-center">
-                <TrendingUp className="w-6 h-6" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Search and Filter */}
-        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-6 mb-8">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-            <div className="lg:col-span-2">
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  type="text"
-                  name="search"
-                  id="search"
-                  className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white"
-                  placeholder="Search leads by name, phone, service..."
-                  defaultValue={searchQuery}
-                />
-              </div>
-            </div>
-            
-            <div className="relative">
-              <Filter className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <select
-                id="status"
-                name="status"
-                className="w-full pl-12 pr-10 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white appearance-none"
-                defaultValue={statusFilter}
-              >
-                {statusOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label} ({option.count})
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
-            </div>
-            
-            <div className="relative">
-              <button
-                type="button"
-                className="w-full inline-flex items-center justify-between px-4 py-3 border-2 border-gray-200 rounded-xl text-gray-700 bg-white hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-              >
-                <span className="flex items-center">
-                  <Calendar className="w-5 h-5 mr-2 text-gray-400" />
-                  Sort: {sortBy === 'createdAt' ? 'Date' : 'Name'}
-                </span>
-                <ChevronDown className="h-5 w-5 text-gray-400" />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Leads List */}
-        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 overflow-hidden">
-          {leads.length > 0 ? (
-            <div className="divide-y divide-gray-100">
-              {leads.map((lead: any) => (
-                <div key={lead.id} className="p-6 hover:bg-blue-50/50 transition-all duration-200 group">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                      <div className="relative">
-                        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-lg">
-                          {lead.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-white"></div>
-                      </div>
-                      
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-3 mb-1">
-                          <Link 
-                            href={`/dashboard/leads/${lead.id}`}
-                            className="text-lg font-semibold text-gray-900 hover:text-blue-600 transition-colors duration-200"
-                          >
-                            {lead.name}
-                          </Link>
-                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                            lead.status === 'NEW' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
-                            lead.status === 'CONTACTED' ? 'bg-yellow-100 text-yellow-800 border border-yellow-200' :
-                            lead.status === 'QUALIFIED' ? 'bg-green-100 text-green-800 border border-green-200' :
-                            lead.status === 'LOST' ? 'bg-red-100 text-red-800 border border-red-200' :
-                            'bg-purple-100 text-purple-800 border border-purple-200'
-                          }`}>
-                            {lead.status.charAt(0) + lead.status.slice(1).toLowerCase()}
-                          </span>
-                        </div>
-                        
-                        <div className="flex items-center space-x-4 text-sm text-gray-600">
-                          <div className="flex items-center">
-                            <Phone className="w-4 h-4 mr-1" />
-                            {lead.phone}
-                          </div>
-                          {lead.email && (
-                            <div className="flex items-center">
-                              <Mail className="w-4 h-4 mr-1" />
-                              {lead.email}
-                            </div>
-                          )}
-                          {lead.service && (
-                            <div className="flex items-center">
-                              <MapPin className="w-4 h-4 mr-1" />
-                              {lead.service}
-                            </div>
-                          )}
-                        </div>
-                        
-                        {lead.notes && (
-                          <p className="mt-2 text-sm text-gray-600 line-clamp-2">
-                            {lead.notes}
-                          </p>
-                        )}
-                        
-                        {lead.followUpOn && (
-                          <div className="mt-2 flex items-center text-sm text-amber-600 bg-amber-50 px-2 py-1 rounded-lg">
-                            <Calendar className="w-4 h-4 mr-1" />
-                            Follow up: {format(new Date(lead.followUpOn), 'MMM d, yyyy')}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                      <Link
-                        href={`/dashboard/leads/${lead.id}`}
-                        className="p-2.5 rounded-full bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors duration-200"
-                        title="View Details"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Link>
-                      
-                      <Link
-                        href={`/dashboard/leads/${lead.id}/edit`}
-                        className="p-2.5 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors duration-200"
-                        title="Edit Lead"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Link>
-                      
-                      <a
-                        href={`https://wa.me/${lead.phone}?text=Hi ${encodeURIComponent(lead.name.split(' ')[0])},`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-2.5 rounded-full bg-green-100 text-green-600 hover:bg-green-200 transition-colors duration-200"
-                        title="WhatsApp"
-                      >
-                        <MessageCircle className="h-4 w-4" />
-                      </a>
-                      
-                      <a
-                        href={`tel:${lead.phone}`}
-                        className="p-2.5 rounded-full bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors duration-200"
-                        title="Call"
-                      >
-                        <Phone className="h-4 w-4" />
-                      </a>
-                      
-                      <button className="p-2.5 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors duration-200">
-                        <MoreVertical className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-16">
-              <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center">
-                <Users className="w-12 h-12 text-blue-600" />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">No leads found</h3>
-              <p className="text-gray-600 mb-6">Start building your pipeline by adding your first lead</p>
-              <Link
-                href="/dashboard/leads/new"
-                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-xl shadow-lg hover:shadow-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200"
-              >
-                <Plus className="w-5 h-5 mr-2" />
-                Add Your First Lead
-              </Link>
-            </div>
-          )}
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading leads...</p>
         </div>
       </div>
+    );
+  }
+
+  const DeleteConfirmationModal = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
+        <h3 className="text-lg font-medium text-gray-900 mb-4">Delete Lead</h3>
+        <p className="text-gray-600 mb-6">Are you sure you want to delete this lead? This action cannot be undone.</p>
+        <div className="flex justify-end space-x-3">
+          <button
+            onClick={() => setShowDeleteModal(false)}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={async () => {
+              await handleDelete();
+            }}
+            className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="bg-white rounded-xl shadow-sm p-6">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Leads</h1>
+                <p className="text-gray-600">Manage your sales pipeline</p>
+              </div>
+              <Link
+                href="/dashboard/leads/new"
+                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Lead
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="bg-white p-4 rounded-lg shadow-sm">
+            <p className="text-sm text-gray-500">Total Leads</p>
+            <p className="text-2xl font-bold">{stats.totalLeads}</p>
+          </div>
+          <div className="bg-white p-4 rounded-lg shadow-sm">
+            <p className="text-sm text-gray-500">New Leads</p>
+            <p className="text-2xl font-bold">{stats.newLeads}</p>
+          </div>
+          <div className="bg-white p-4 rounded-lg shadow-sm">
+            <p className="text-sm text-gray-500">Qualified</p>
+            <p className="text-2xl font-bold">{stats.qualifiedLeads}</p>
+          </div>
+          <div className="bg-white p-4 rounded-lg shadow-sm">
+            <p className="text-sm text-gray-500">Conversion Rate</p>
+            <p className="text-2xl font-bold">{stats.conversionRate}%</p>
+          </div>
+        </div>
+
+        {/* Leads Table */}
+        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+          <div className="p-4 border-b border-gray-200">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search leads..."
+                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg w-full md:w-64"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                <svg
+                  className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+              </div>
+              <div className="flex items-center space-x-2">
+                <button className="p-2 text-gray-500 hover:text-gray-700">
+                  <RefreshCw className="w-5 h-5" />
+                </button>
+                <button className="p-2 text-gray-500 hover:text-gray-700">
+                  <Download className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Updated</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {leads
+                  .filter(lead => 
+                    lead.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    lead.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    lead.phone.includes(searchQuery)
+                  )
+                  .map((lead) => (
+                    <tr key={lead.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="font-medium text-gray-900">{lead.name}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-500">
+                        {lead.phone}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-500">
+                        {lead.email || '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          lead.status === 'NEW' ? 'bg-blue-100 text-blue-800' :
+                          lead.status === 'QUALIFIED' ? 'bg-green-100 text-green-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {lead.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {format(new Date(lead.updatedAt), 'MMM d, yyyy')}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-4">
+                        <Link 
+                          href={`/dashboard/leads/${lead.id}`}
+                          className="text-blue-600 hover:text-blue-900"
+                        >
+                          View
+                        </Link>
+                        <Link 
+                          href={`/dashboard/leads/${lead.id}/edit`}
+                          className="text-indigo-600 hover:text-indigo-900"
+                        >
+                          Edit
+                        </Link>
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleDeleteClick(lead.id);
+                          }}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      {showDeleteModal && <DeleteConfirmationModal />}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/components/ui/toast";
+import { SessionProvider } from "next-auth/react";
 import { AuthProvider } from "@/lib/auth";
 
 const geistSans = Geist({
@@ -18,8 +19,8 @@ const geistMono = Geist_Mono({
 
 // This is a workaround for static export
 const metadata: Metadata = {
-  title: "CRM Dashboard",
-  description: "A modern CRM dashboard with Next.js and Prisma",
+  title: "FollowUp - Never Miss a Lead",
+  description: "FollowUp helps you manage your leads and never miss an important follow-up",
 };
 
 export default function RootLayout({
@@ -30,15 +31,17 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <title>CRM Dashboard</title>
+        <title>FollowUp - Never Miss a Lead</title>
         <meta name="description" content="A modern CRM dashboard with Next.js and Prisma" />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <AuthProvider>
-          <ToastProvider>
-            {children}
-          </ToastProvider>
-        </AuthProvider>
+        <SessionProvider>
+          <AuthProvider>
+            <ToastProvider>
+              {children}
+            </ToastProvider>
+          </AuthProvider>
+        </SessionProvider>
       </body>
     </html>
   );
